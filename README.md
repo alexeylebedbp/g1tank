@@ -4,8 +4,10 @@ Yahboom G1 Raspberry PI tank application
 
 ### Installation and update. Recurcive clone including submodules:
 ```
+Install:
 git clone --recurse-submodules -b master https://github.com/alexeylebedbp/g1tank.git
-git submodule update --init --recursive
+Update:
+git submodule update --remote --merge
 ```
 
 Reqs:
