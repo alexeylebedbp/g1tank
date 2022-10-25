@@ -1,0 +1,10 @@
+
+[submodule "g1tank_server"]
+	path = g1tank_server
+	url = https://github.com/alexeylebedbp/g1tank_server.git
+[submodule "g1tank_pilot"]
+	path = g1tank_pilot
+	url = https://github.com/alexeylebedbp/g1tank_pilot.git
+[submodule "g1tank_robot"]
+	path = g1tank_robot
+	url = https://github.com/alexeylebedbp/g1tank_robot.git
