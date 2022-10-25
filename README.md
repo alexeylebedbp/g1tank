@@ -12,6 +12,10 @@ OpenSSL
 Boost
 
 ### 1. G1 Tank Robot Submodule:
-### 2. G1 Tank Server Submodule
-### 3. G1 Tank Pilot Submodule
+Robot submodule represents Python application which is running on Raspberry Pi tank. Supports WebRTC protocol.
 
+### 2. G1 Tank Server Submodule:
+Signalling C++ server which is resposnible for establising connection between the tank and browser pilot app
+
+### 3. G1 Tank Pilot Submodule:
+React Typeescript browser application to control the robot. Supports WebRTC protocol.
