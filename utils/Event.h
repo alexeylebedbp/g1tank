@@ -62,7 +62,8 @@ public:
         for(const auto& listener: listeners){
             listener->on_event(event);
         }
-    }
+    };
+
     virtual void emit_event(const string& action){
         auto event = make_shared<Event<T>>(action, (T*)this);
         for(const auto& listener: listeners){
@@ -75,7 +76,7 @@ protected:
     vector<shared_ptr<EventListener<T>>> listeners{};
     stack<shared_ptr<EventListener<T>>> listeners_to_remove{};
 
-private:
+public:
     void cleanup(){
         while (!listeners_to_remove.empty()){
             auto next = listeners_to_remove.top();

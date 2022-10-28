@@ -10,7 +10,7 @@ PilotSession::PilotSession(uuid pilot_id, Websocket* ws,  asio::io_context& ctx,
         :pilot_id(pilot_id),
          ctx(ctx),
          session_id(boost::uuids::random_generator()()),
-         manager(manager),
+         manager(manager.get()),
          ws(ws){}
 
 CarSession* PilotSession::get_car_control(const uuid& car_id) {
@@ -58,7 +58,7 @@ void PilotSession::on_event(const shared_ptr<Event<CarSession>>& event){
 
     auto j = nlohmann::json::parse(event->message);
     if (j[PILOT_ID].empty() || j[ACTION].empty()) return;
-    if(car_events.find(j["action"]) == ws_events.end()) return;
+    if(car_events.find(j[ACTION]) == ws_events.end()) return;
 
     if(event->action == "close"){
         on_car_disconnected(event, j);
@@ -127,9 +127,21 @@ PilotSessionManager::PilotSessionManager(asio::io_context& ctx)
         :ws_connections(make_shared<WebsocketManager>(ctx, 8081)),
          ctx(ctx){}
 
-void PilotSessionManager::init(const shared_ptr<CarSessionManager>& car_manager){
+void PilotSessionManager::init(const shared_ptr<CarSessionManager>& car_manager, Server* server_){
     ws_connections->add_event_listener(shared_from_this());
     this->car_session_manager = car_manager.get();
+    this->server = server_;
+}
+
+void PilotSessionManager::stop() {
+    for(auto& connection: connections){
+        connection->remove_event_listener(shared_from_this());
+        remove_connection(connection);
+    }
+    cleanup();
+    ws_connections->is_running = false;
+    ws_connections->remove_event_listener(shared_from_this());
+    ws_connections->stop();
 }
 
 
@@ -187,7 +199,7 @@ void PilotSessionManager::on_close(const shared_ptr<Event<WebsocketManager>>& ev
     auto ws = (Websocket*)event->data;
     shared_ptr<PilotSession> session  {nullptr};
     for(const auto& connection: connections){
-        if(connection->ws.get() == ws){
+        if(connection->ws == ws){
             session = connection;
         }
     }

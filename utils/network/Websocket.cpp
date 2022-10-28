@@ -7,8 +7,8 @@
 
 
 Websocket::Websocket(tcp::socket socket_, asio::io_context& ctx): socket(std::move(socket_)), ctx(ctx){
-    transport = new ws_stream(socket);
-    pingpong = new PingPong(this);
+    transport = make_shared<ws_stream>(socket);
+    pingpong =  make_shared<PingPong>(this);
 }
 
 void Websocket::on_message(const string &message) {
@@ -66,6 +66,8 @@ awaitable<void> Websocket::wait_and_read() {
 Websocket::PingPong::PingPong(Websocket *ws)
     :ws(ws), latency_timer(ws->ctx), timeout(ws->ctx), last_sent(0), last_received(0){}
 
+
+
 void Websocket::PingPong::on_received(const string& message){
     timeout.cancel();
     last_received = ms_timestamp();
@@ -106,6 +108,7 @@ awaitable<void> WebsocketManager::listener() {
             cerr << "WebsocketManager::listener() " << e.what() << endl;
         }
     }
+    cout << "WebsocketManager: STOP listening  on PORT: " << port << endl;
 }
 
 void WebsocketManager::on_open(const shared_ptr<Websocket>& websocket) {
@@ -122,6 +125,14 @@ void WebsocketManager::listen(){
              [self = shared_from_this()]{ return self->listener(); },
              exception_handler_generator("WebsocketManager::listen")
     );
+}
+
+void WebsocketManager::stop(){
+    for(auto& connection: connections){
+        connection->remove_event_listener(shared_from_this());
+        remove_connection(connection);
+    }
+    cleanup();
 }
 
 WebsocketManager::WebsocketManager(asio::io_context &ctx, int port):ctx(ctx), port(std::move(port)) {}

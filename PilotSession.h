@@ -23,7 +23,7 @@ class PilotSession:
     CarSession* car{nullptr};
 
     ///Websocket events
-    const std::set<string> ws_events {"get_car_control","move", "offer_request", "webrtc_answer"};
+    const std::set<string> ws_events {GET_CAR_CONTROL,MOVE, OFFER_REQUEST, WEBRTC_ANSWER};
     void on_get_car_control(const shared_ptr<Event<Websocket>>& event, nlohmann::json& j);
     void on_move(const shared_ptr<Event<Websocket>>& event, nlohmann::json& j);
     void on_offer_request(const shared_ptr<Event<Websocket>>& event, nlohmann::json& j);
@@ -38,9 +38,9 @@ class PilotSession:
 public:
     uuid session_id;
     uuid pilot_id;
-    shared_ptr<Websocket> ws;
+    Websocket* ws;
     asio::io_context &ctx;
-    shared_ptr<PilotSessionManager> manager;
+    PilotSessionManager* manager;
 
     PilotSession(uuid pilot_id, Websocket* ws, asio::io_context &ctx, const shared_ptr<PilotSessionManager>& manager);
     CarSession* get_car_control(const uuid& car_id);
@@ -65,17 +65,17 @@ class PilotSessionManager:
 {
     CarSessionManager* car_session_manager{nullptr};
     asio::io_context& ctx;
-    std::set<string> ws_event_types {"close", "auth_session"};
+    std::set<string> ws_event_types {CLOSE, AUTH_SESSION};
 
     void on_event(const shared_ptr<Event<WebsocketManager>>& event) override;
     void on_event(const shared_ptr<Event<PilotSession>>& event) override;
     void on_stop_signal() const;
 
     ///PilotSessionEvents
-    const std::set<string> pilot_events{"byebye"};
+    const std::set<string> pilot_events{BYEBYE};
 
     ///WebsocketManager events
-    const std::set<string> ws_events {"auth_session", "close", "byebye"};
+    const std::set<string> ws_events {AUTH_SESSION, CLOSE, BYEBYE};
     void on_auth_session(const shared_ptr<Event<WebsocketManager>>& event, nlohmann::json& j);
     void on_close(const shared_ptr<Event<WebsocketManager>>& event);
 
@@ -85,7 +85,8 @@ public:
     shared_ptr<WebsocketManager>ws_connections;
     Server* server {nullptr};
     CarSession* get_car_control(uuid car_id, PilotSession* pilot);
-    void init(const shared_ptr<CarSessionManager>&);
+    void init(const shared_ptr<CarSessionManager>&, Server*);
+    void stop();
 
 };
 

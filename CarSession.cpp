@@ -5,7 +5,7 @@
 #include "boost/asio/read.hpp"
 #include "PilotSession.h"
 
-CarSession::CarSession(uuid car_id, const shared_ptr<Websocket>& ws,  asio::io_context& ctx)
+CarSession::CarSession(uuid car_id, Websocket* ws,  asio::io_context& ctx)
     :car_id(car_id),
      ctx(ctx),
      session_id(boost::uuids::random_generator()()),
@@ -42,9 +42,19 @@ void CarSession::on_webrtc_offer(const shared_ptr<Event<Websocket>>& event, nloh
 CarSessionManager::CarSessionManager(asio::io_context& ctx)
     :ws_connections(make_shared<WebsocketManager>(ctx, 8080)), ctx(ctx){}
 
-void CarSessionManager::init(const shared_ptr<PilotSessionManager>& pilot_session_manager_) {
+void CarSessionManager::init() {
     ws_connections->add_event_listener(shared_from_this());
-    this->pilot_session_manager = pilot_session_manager_.get();
+}
+
+void CarSessionManager::stop() {
+    for(auto& connection: connections){
+        connection->remove_event_listener(shared_from_this());
+        remove_connection(connection);
+    }
+    cleanup();
+    ws_connections->is_running = false;
+    ws_connections->remove_event_listener(shared_from_this());
+    ws_connections->stop();
 }
 
 
@@ -70,7 +80,7 @@ void CarSessionManager::on_close(const shared_ptr<Event<WebsocketManager>>& even
     auto ws = (Websocket*)event->data;
     shared_ptr<CarSession> session  {nullptr};
     for(const auto& connection: connections){
-        if(connection->ws.get() == ws){
+        if(connection->ws == ws){
             session = connection;
         }
     }
@@ -91,7 +101,7 @@ void CarSessionManager::on_auth_session(const shared_ptr<Event<WebsocketManager>
     if(it == connections.end()){
         try{
             cout << "Creating a new car session" <<  endl;
-            auto ws = shared_ptr<Websocket>((Websocket *)event->data);
+            auto ws = (Websocket *)event->data;
             auto session = make_shared<CarSession>(str_to_uuid(j[CAR_ID]), ws, ctx);
             nlohmann::json j;
             j[ACTION] = AUTH_ACCEPT;
