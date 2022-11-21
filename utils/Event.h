@@ -47,6 +47,7 @@ class EventEmitter {
             stacked_listeners.push(listener);
         }
 
+        ///Reverse vector elements to stick to LIFO order. Otherwise we get memory leak when stopping the app
         while (!stacked_listeners.empty()){
             auto listener = stacked_listeners.top();
             stacked_listeners.pop();
