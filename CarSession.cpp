@@ -20,7 +20,7 @@ void CarSession::redirect_message_to_pilot(const nlohmann::json& j) const {
     }
 }
 
-void CarSession::on_event(const shared_ptr<Event<Websocket>>& event) {
+void CarSession::on_event(Event<Websocket>* event) {
     cout << "CarSession WS event: " << event->action << " " << event->message << endl;
     if(event->action == CLOSE || event->message.empty()){
         return;
@@ -35,30 +35,39 @@ void CarSession::on_event(const shared_ptr<Event<Websocket>>& event) {
     }
 }
 
-void CarSession::on_webrtc_offer(const shared_ptr<Event<Websocket>>& event, nlohmann::json& j){
+void CarSession::on_webrtc_offer(Event<Websocket>* event, nlohmann::json& j){
     redirect_message_to_pilot(j);
+}
+
+void CarSession::remove_pilot() {
+    if(pilot != nullptr){
+        this->remove_event_listener(pilot);
+        pilot->remove_event_listener(this);
+        pilot = nullptr;
+    }
 }
 
 CarSessionManager::CarSessionManager(asio::io_context& ctx)
     :ws_connections(make_shared<WebsocketManager>(ctx, 8080)), ctx(ctx){}
 
 void CarSessionManager::init() {
-    ws_connections->add_event_listener(shared_from_this());
+    ws_connections->add_event_listener(this);
 }
 
 void CarSessionManager::stop() {
     for(auto& connection: connections){
-        connection->remove_event_listener(shared_from_this());
-        remove_connection(connection);
+        connection->remove_event_listener(this);
+        connection->remove_pilot();
     }
-    cleanup();
+    cout << "CarSessionManager::stop()" << endl;
+    connections.clear();
     ws_connections->is_running = false;
-    ws_connections->remove_event_listener(shared_from_this());
+    ws_connections->remove_event_listener(this);
     ws_connections->stop();
 }
 
 
-void CarSessionManager::on_event(const shared_ptr<Event<WebsocketManager>>& event) {
+void CarSessionManager::on_event(Event<WebsocketManager>* event) {
 
     if(event->action == CLOSE){
         on_close(event);
@@ -75,7 +84,7 @@ void CarSessionManager::on_event(const shared_ptr<Event<WebsocketManager>>& even
     }
 }
 
-void CarSessionManager::on_close(const shared_ptr<Event<WebsocketManager>>& event) {
+void CarSessionManager::on_close(Event<WebsocketManager>* event) {
     cout << "CarSessionManager WS close" << endl;
     auto ws = (Websocket*)event->data;
     shared_ptr<CarSession> session  {nullptr};
@@ -84,10 +93,12 @@ void CarSessionManager::on_close(const shared_ptr<Event<WebsocketManager>>& even
             session = connection;
         }
     }
+    session->remove_event_listener(this);
+    ws->remove_event_listener(session.get());
     remove_connection(session);
 }
 
-void CarSessionManager::on_auth_session(const shared_ptr<Event<WebsocketManager>>& event, nlohmann::json& j) {
+void CarSessionManager::on_auth_session(Event<WebsocketManager>* event, nlohmann::json& j) {
     cout << "Auth session message is received, car_id: " << j[CAR_ID] << endl;
     auto it = connections.begin();
     while(it != connections.end()){
@@ -106,8 +117,8 @@ void CarSessionManager::on_auth_session(const shared_ptr<Event<WebsocketManager>
             nlohmann::json j;
             j[ACTION] = AUTH_ACCEPT;
             session->ws->send_message(j.dump());
-            session->add_event_listener(shared_from_this());
-            ws->add_event_listener(session);
+            session->add_event_listener(this);
+            ws->add_event_listener(session.get());
             connections.push_back(session);
         } catch (std::exception& e){
             cerr << "Failed to create a car session. " << e.what()<< endl;
@@ -115,7 +126,7 @@ void CarSessionManager::on_auth_session(const shared_ptr<Event<WebsocketManager>
     }
 }
 
-void CarSessionManager::on_event(const shared_ptr<Event<CarSession>> &event) {
+void CarSessionManager::on_event(Event<CarSession>* event) {
 
 }
 
@@ -125,8 +136,8 @@ CarSession *CarSessionManager::handle_car_control_request(uuid car_id, PilotSess
         if(session->pilot == nullptr && session->car_id == car_id){
             result = session.get();
             session->pilot = candidate;
-            session->add_event_listener(shared_ptr<PilotSession>(candidate));
-            candidate->add_event_listener(session);
+            session->add_event_listener(candidate);
+            candidate->add_event_listener(session.get());
         }
     }
     return result;

@@ -33,51 +33,30 @@ template <typename  T>
 class EventListener {
     set<string>event_types;
 public:
-    virtual void on_event(const shared_ptr<Event<T>>& event){};
+    virtual void on_event(Event<T>* event){};
 };
 
 template<typename T>
 class EventEmitter {
-public:
-    void add_event_listener(const shared_ptr<EventListener<T>>& candidate) {
-        auto it = find(listeners.begin(), listeners.end(), candidate);
-        if(it == listeners.end()){
-            listeners.push_back(candidate);
-        }
-    };
+    bool listeners_locked {false};
 
-    void remove_event_listener(const shared_ptr<EventListener<T>>& candidate){
-        listeners_to_remove.push(candidate);
-    };
+    void signal(Event<T>* event){
+        listeners_locked = true;
 
-    virtual void emit_event(const string& action, const string& message, void* data){
-        auto event = make_shared<Event<T>>(action, message, (T*)this , data);
         for(const auto& listener: listeners){
+            stacked_listeners.push(listener);
+        }
+
+        while (!stacked_listeners.empty()){
+            auto listener = stacked_listeners.top();
+            stacked_listeners.pop();
             listener->on_event(event);
         }
-    };
 
-    virtual void emit_event(const string& action, const string& message){
-        auto event = make_shared<Event<T>>(action, message, (T*)this);
-        for(const auto& listener: listeners){
-            listener->on_event(event);
-        }
-    };
+        delete event;
+        listeners_locked = false;
 
-    virtual void emit_event(const string& action){
-        auto event = make_shared<Event<T>>(action, (T*)this);
-        for(const auto& listener: listeners){
-            listener->on_event(event);
-        }
-        cleanup();
-    };
-
-protected:
-    vector<shared_ptr<EventListener<T>>> listeners{};
-    stack<shared_ptr<EventListener<T>>> listeners_to_remove{};
-
-public:
-    void cleanup(){
+        ///Handle remove_event_listener Event
         while (!listeners_to_remove.empty()){
             auto next = listeners_to_remove.top();
             listeners_to_remove.pop();
@@ -87,6 +66,44 @@ public:
             }
         }
     }
+protected:
+    vector<EventListener<T>*> listeners{};
+    stack<EventListener<T>*> stacked_listeners{};
+    stack<EventListener<T>*> listeners_to_remove{};
+public:
+    void add_event_listener(EventListener<T>* candidate) {
+        auto it = find(listeners.begin(), listeners.end(), candidate);
+        if(it == listeners.end()){
+            listeners.push_back(candidate);
+        }
+    };
+
+    void remove_event_listener(EventListener<T>* candidate){
+        if(listeners_locked){
+            listeners_to_remove.push(candidate);
+        } else {
+            auto it = find(listeners.begin(), listeners.end(), candidate);
+            if(it != listeners.end()){
+                listeners.erase(it);
+            }
+        }
+    };
+
+
+    virtual void emit_event(const string& action, const string& message, void* data){
+        auto event = new Event<T>(action, message, (T*)this , data);
+        signal(event);
+    };
+
+    virtual void emit_event(const string& action, const string& message){
+        auto event = new Event<T>(action, message, (T*)this);
+        signal(event);
+    };
+
+    virtual void emit_event(const string& action){
+        auto event = new Event<T>(action, (T*)this);
+        signal(event);
+    };
 };
 
 

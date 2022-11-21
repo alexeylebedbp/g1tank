@@ -20,19 +20,20 @@ class PilotSession:
         public EventListener<CarSession>,
         public EventEmitter<PilotSession>
 {
-    CarSession* car{nullptr};
+    CarSession* car {nullptr};
 
     ///Websocket events
     const std::set<string> ws_events {GET_CAR_CONTROL,MOVE, OFFER_REQUEST, WEBRTC_ANSWER};
-    void on_get_car_control(const shared_ptr<Event<Websocket>>& event, nlohmann::json& j);
-    void on_move(const shared_ptr<Event<Websocket>>& event, nlohmann::json& j);
-    void on_offer_request(const shared_ptr<Event<Websocket>>& event, nlohmann::json& j);
-    void on_webrtc_answer(const shared_ptr<Event<Websocket>>& event, nlohmann::json& j);
+    void on_get_car_control(Event<Websocket>* event, nlohmann::json& j);
+    void on_move(Event<Websocket>* event, nlohmann::json& j);
+    void on_offer_request(Event<Websocket>* event, nlohmann::json& j);
+    void on_webrtc_answer(Event<Websocket>* event, nlohmann::json& j);
+    void on_byebye(Event<Websocket>* event, nlohmann::json& j);
     void redirect_message_to_car(nlohmann::json&);
 
     ///Car events
     const std::set<string> car_events{"close"};
-    void on_car_disconnected(const shared_ptr<Event<CarSession>>& event, nlohmann::json& j);
+    void on_car_disconnected(Event<CarSession>* event, nlohmann::json& j);
 
 
 public:
@@ -47,10 +48,14 @@ public:
     void init();
 
     void add_car(CarSession*);
-    void remove_car(CarSession*);
+    void remove_car();
 
-    void on_event(const shared_ptr<Event<CarSession>>&) override;
-    void on_event(const shared_ptr<Event<Websocket>>&) override;
+    void on_event(Event<CarSession>*) override;
+    void on_event(Event<Websocket>*) override;
+
+    ~PilotSession(){
+        cout << "Destroying PilotSession" << endl;
+    }
 };
 
 class Server;
@@ -67,8 +72,8 @@ class PilotSessionManager:
     asio::io_context& ctx;
     std::set<string> ws_event_types {CLOSE, AUTH_SESSION};
 
-    void on_event(const shared_ptr<Event<WebsocketManager>>& event) override;
-    void on_event(const shared_ptr<Event<PilotSession>>& event) override;
+    void on_event(Event<WebsocketManager>* event) override;
+    void on_event(Event<PilotSession>* event) override;
     void on_stop_signal() const;
 
     ///PilotSessionEvents
@@ -76,8 +81,8 @@ class PilotSessionManager:
 
     ///WebsocketManager events
     const std::set<string> ws_events {AUTH_SESSION, CLOSE, BYEBYE};
-    void on_auth_session(const shared_ptr<Event<WebsocketManager>>& event, nlohmann::json& j);
-    void on_close(const shared_ptr<Event<WebsocketManager>>& event);
+    void on_auth_session(Event<WebsocketManager>* event, nlohmann::json& j);
+    void on_close(Event<WebsocketManager>* event);
 
 
 public:

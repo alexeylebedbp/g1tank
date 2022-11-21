@@ -114,7 +114,7 @@ awaitable<void> WebsocketManager::listener() {
 void WebsocketManager::on_open(const shared_ptr<Websocket>& websocket) {
     add_connection(websocket);
     websocket->status = WebsocketStatus::connected;
-    websocket->add_event_listener(shared_from_this());
+    websocket->add_event_listener(this);
     websocket->send_message(PING);
     websocket->pingpong->last_sent = ms_timestamp();
     websocket->read();
@@ -129,19 +129,19 @@ void WebsocketManager::listen(){
 
 void WebsocketManager::stop(){
     for(auto& connection: connections){
-        connection->remove_event_listener(shared_from_this());
-        remove_connection(connection);
+        connection->remove_event_listener(this);
     }
-    cleanup();
+    connections.clear();
 }
 
 WebsocketManager::WebsocketManager(asio::io_context &ctx, int port):ctx(ctx), port(std::move(port)) {}
 
 
-void WebsocketManager::on_event(const shared_ptr<Event<Websocket>>& event) {
+void WebsocketManager::on_event(Event<Websocket>* event) {
     if (event->action == CLOSE) {
-        cout << "WebsocketManager unsubscribe on WS CLOSE event" << endl;
-        event->emitter->remove_event_listener(shared_from_this());
+        cout << "WebsocketManager unsubscribe on WS CLOSE" << endl;
+        event->emitter->remove_event_listener(this);
     }
     emit_event(event->action, event->message, (void*)event->emitter);
 }
+

@@ -72,7 +72,7 @@ private:
     awaitable<void> listener();
     const int port;
     void on_open(const shared_ptr<Websocket>& ws);
-    void on_event(const shared_ptr<Event<Websocket>>& event) override;
+    void on_event(Event<Websocket>* event) override;
 };
 
 
